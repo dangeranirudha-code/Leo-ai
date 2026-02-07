@@ -1,0 +1,124 @@
+package com.leo.ai;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.*;
+import java.util.Map;
+
+// 1. This is the Main Launcher AND the Server
+@SpringBootApplication
+@RestController
+public class LeoAiApp {
+
+    public static void main(String[] args) {
+        SpringApplication.run(LeoAiApp.class, args);
+    }
+
+    // --- PART 1: THE WEBSITE (Frontend embedded in Java) ---
+    @GetMapping("/")
+    public String getWebsite() {
+        return """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Leo - Your AI</title>
+            <style>
+                body { font-family: 'Arial', sans-serif; background: #0f0f0f; color: #eee; display: flex; justify-content: center; height: 100vh; margin: 0; }
+                .container { width: 100%; max-width: 500px; padding: 20px; display: flex; flex-direction: column; }
+                h1 { text-align: center; color: #00d4ff; }
+                
+                /* Version Selectors */
+                .versions { display: flex; justify-content: space-around; margin-bottom: 20px; background: #1f1f1f; padding: 10px; border-radius: 10px; }
+                .versions label { cursor: pointer; font-size: 0.9rem; }
+                input[type="radio"] { accent-color: #00d4ff; }
+                
+                /* Chat Area */
+                #chat-box { flex-grow: 1; background: #1a1a1a; border-radius: 10px; padding: 15px; overflow-y: auto; margin-bottom: 15px; border: 1px solid #333; }
+                .msg { margin: 8px 0; padding: 10px; border-radius: 8px; font-size: 0.95rem; }
+                .user { background: #333; text-align: right; align-self: flex-end; }
+                .leo { background: #005f73; text-align: left; align-self: flex-start; }
+                
+                /* Input */
+                .input-group { display: flex; gap: 10px; }
+                input[type="text"] { flex-grow: 1; padding: 12px; border-radius: 5px; border: none; background: #2a2a2a; color: white; }
+                button { background: #00d4ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+                button:hover { background: #00b8de; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Leo AI</h1>
+                
+                <div class="versions">
+                    <label><input type="radio" name="ver" value="Pro" checked> Pro</label>
+                    <label><input type="radio" name="ver" value="Guide"> Guide</label>
+                    <label><input type="radio" name="ver" value="Quickly answer"> Quick</label>
+                </div>
+
+                <div id="chat-box">
+                    <div class="msg leo">Hello. I am Leo. Select a mode above.</div>
+                </div>
+
+                <div class="input-group">
+                    <input type="text" id="in" placeholder="Ask Leo..." onkeypress="if(event.key==='Enter') send()">
+                    <button onclick="send()">Send</button>
+                </div>
+            </div>
+
+            <script>
+                async function send() {
+                    let input = document.getElementById('in');
+                    let text = input.value;
+                    let ver = document.querySelector('input[name="ver"]:checked').value;
+                    let box = document.getElementById('chat-box');
+
+                    if(!text) return;
+                    
+                    box.innerHTML += `<div class='msg user'>${text}</div>`;
+                    input.value = "";
+                    box.scrollTop = box.scrollHeight;
+
+                    // Send to Java Backend
+                    let req = await fetch('/chat', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ message: text, version: ver })
+                    });
+                    
+                    let data = await req.text();
+                    box.innerHTML += `<div class='msg leo'>${data}</div>`;
+                    box.scrollTop = box.scrollHeight;
+                }
+            </script>
+        </body>
+        </html>
+        """;
+    }
+
+    // --- PART 2: THE BACKEND (Logic) ---
+    @PostMapping("/chat")
+    public String chat(@RequestBody Map<String, String> payload) {
+        String userMsg = payload.get("message");
+        String version = payload.get("version");
+        
+        // This is where Leo decides how to act based on version
+        String response = "";
+        
+        if (version.equalsIgnoreCase("Pro")) {
+            response = " [Leo Pro]: Analyzing request... Based on technical parameters, the answer to '" + userMsg + "' requires deep analysis. (Pro Mode Active)";
+        } 
+        else if (version.equalsIgnoreCase("Guide")) {
+            response = " [Leo Guide]: Let me explain simply. You asked about '" + userMsg + "'. Think of it like this... (Step-by-step Guide Active)";
+        } 
+        else if (version.equalsIgnoreCase("Quickly answer")) {
+            response = " [Leo Quick]: Answer: " + userMsg + ". Done.";
+        } 
+        else {
+            response = "I am Leo.";
+        }
+
+        return response;
+    }
+}
